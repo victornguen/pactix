@@ -1,0 +1,102 @@
+name: Publish to PyPI
+
+# Builds the package and publishes it to PyPI when a GitHub Release is published.
+# Can also be run manually (workflow_dispatch) to publish to TestPyPI for a dry run.
+#
+# Authentication uses PyPI Trusted Publishing (OIDC) — no API token or secret is
+# stored in the repo. One-time setup on PyPI:
+#   1. Create the project (or reserve the name) at https://pypi.org.
+#   2. Add a "trusted publisher" under the project's Publishing settings with:
+#        Owner:           <your GitHub org/user>
+#        Repository:      pactix
+#        Workflow name:   publish.yml
+#        Environment:     pypi
+#   3. (Optional) Repeat on https://test.pypi.org with environment "testpypi".
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Registry to publish to
+        type: choice
+        default: testpypi
+        options:
+          - testpypi
+          - pypi
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build distribution
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Check distribution metadata
+        run: uvx twine check dist/*
+
+      - name: Upload distribution artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || inputs.target == 'pypi'
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pactix
+    permissions:
+      id-token: write  # required for Trusted Publishing (OIDC)
+    steps:
+      - name: Download distribution artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # Manual dry runs default to TestPyPI.
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/pactix
+    permissions:
+      id-token: write
+    steps:
+      - name: Download distribution artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
