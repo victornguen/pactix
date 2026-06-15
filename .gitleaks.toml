@@ -1,0 +1,25 @@
+title = "Custom gitleaks config with extended rules"
+
+[extend]
+useDefault = true
+
+# Disable default rule
+#[[rules]]
+#id = "generic-api-key"
+#enabled = false
+
+#[[rules]]
+#description = "Allow environment variable references like ${S3_SECRET_KEY} and ${S3_ACCESS_KEY}"
+#id = "allow-env-s3-secrets"
+#regex = '''(?i)\$\{S3_(SECRET|ACCESS)_KEY\}'''
+#tags = ["env-var", "false-positive"]
+#allow = true
+
+#[[allowlist.paths]]
+#description = "Ignore values YAMLs"
+#path = ".infra/.*-values.yaml"
+
+[allowlist]
+regexes = [
+    '''(?i)\$\{S3_(SECRET|ACCESS)_KEY\}'''
+]

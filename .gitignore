@@ -1,0 +1,91 @@
+media/
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+.pytest_cache/
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+.hypothesis/
+
+# dotenv
+.env
+env_vars/application.env
+env_vars/database.env
+
+# virtualenv
+venv/
+ENV/
+
+# intellij ide
+.idea/
+*.iml
+
+# auto generated docs
+doc.html
+.vscode
+tests.env
+.lh
+.history
+src/tmp
+appmap.yml
+.timetracker
+.venv
+dockerfile-local
+docker-compose-local.yml
+certs
+.ruff_cache
+ruff_report.xml
+cov.xml
+pytest.ini
+
+!.dockerignore
+!.gitignore
+!.pylintrc
+!.infra
+!.env.template
+!.gitlab-ci.yml
+.tmp
+.continueignore
+.docker/*
+.env
+.devcontainer/*
+.vxnotes/Unnamed.md
+.roomodes
+codebook.toml
+.vxnotes
+.roo/
+.mypy_cache
+.devcontainer
+memory-bank
+.DS_Store
