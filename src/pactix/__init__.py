@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pactix.config import PactixConfig, RetryPolicy
+from pactix.config import NotifyMode, PactixConfig, RetryPolicy, WakeupPolicy
 from pactix.errors import PactixError, PersistenceError, RoutingError, ValidationError
 from pactix.inbox import (
     AcceptAllEvents,
@@ -25,13 +25,18 @@ from pactix.inbox import (
 )
 from pactix.message import MessageEnvelope, MessageMetadata
 from pactix.outbox import (
+    CoalescedNotifier,
+    FallbackBackoff,
+    LocalWakeup,
     OutboxMessageRecord,
     OutboxPublisher,
     OutboxRunner,
     OutboxStatus,
     OutboxStore,
+    PostgresWakeListener,
     PublisherRegistry,
     PublishOutcome,
+    WakeupRunner,
     outbox_publisher,
 )
 
@@ -42,6 +47,8 @@ __all__ = [
     # config
     'PactixConfig',
     'RetryPolicy',
+    'NotifyMode',
+    'WakeupPolicy',
     # errors
     'PactixError',
     'ValidationError',
@@ -59,6 +66,11 @@ __all__ = [
     'PublishOutcome',
     'outbox_publisher',
     'OutboxRunner',
+    'LocalWakeup',
+    'FallbackBackoff',
+    'PostgresWakeListener',
+    'CoalescedNotifier',
+    'WakeupRunner',
     # inbox
     'InboxMessageRecord',
     'InboxStatus',

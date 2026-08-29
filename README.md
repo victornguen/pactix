@@ -10,6 +10,7 @@ Use it when a service needs to commit business data and outgoing events in the s
 - FIFO within the same `event_type + ordering_key`
 - Optional unordered inbox processing with a stale-event filter contract
 - Retry scheduling and lease-based recovery for stuck workers
+- Optional wakeup-driven outbox scheduling — post-commit signal and PostgreSQL LISTEN/NOTIFY with adaptive fallback polling (see [Operations](docs/operations.md#wakeup-driven-scheduling-optional))
 - Transport-agnostic core protocols
 - Built-in helpers for common hooks, stale-event filters, and closure-based adapters
 - Optional Kafka adapters behind the `kafka` extra

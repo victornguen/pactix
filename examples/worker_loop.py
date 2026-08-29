@@ -2,7 +2,8 @@
 
 Shows the caller-owned scheduling contract: pactix never spawns loops, it only
 exposes ``run_once``. This wires an outbox publisher and an inbox handler, then
-polls both runners on an interval.
+polls both runners on an interval. An optional wakeup-driven variant of the
+outbox loop is included below (``run_wakeup_loop``); see docs/operations.md.
 
 Run against a database that already has the ``outbox_message`` and
 ``inbox_message`` tables (see docs/operations.md). This file is illustrative; it
@@ -20,6 +21,7 @@ from pactix import (
     HandleOutcome,
     InboxRunner,
     InboxStore,
+    LocalWakeup,
     MessageEnvelope,
     MessageMetadata,
     OutboxRunner,
@@ -28,6 +30,8 @@ from pactix import (
     ProcessAll,
     PublisherRegistry,
     PublishOutcome,
+    WakeupPolicy,
+    WakeupRunner,
     inbox_handler,
     outbox_publisher,
 )
@@ -63,6 +67,21 @@ async def run_loop(engine: AsyncEngine, runner: OutboxRunner | InboxRunner, inte
         await asyncio.sleep(interval)
 
 
+async def run_wakeup_loop(
+    engine: AsyncEngine,
+    runner: OutboxRunner,
+    policy: WakeupPolicy,
+    local_wakeup: LocalWakeup,
+) -> None:
+    """Optional outbox variant: wait on wake signals instead of polling.
+
+    Pass ``config.wakeup`` with ``enabled=True`` — ``WakeupRunner`` raises
+    ``ValidationError`` otherwise. Share ``local_wakeup`` with the code that
+    appends rows and call ``local_wakeup.wake()`` right after each commit.
+    """
+    await WakeupRunner(runner, policy, local_wakeup).run(engine)
+
+
 async def main(dsn: str) -> None:
     config = PactixConfig()
     engine = create_async_engine(dsn)
@@ -82,6 +101,17 @@ async def main(dsn: str) -> None:
         run_loop(engine, outbox_runner, config.outbox_poll_interval.total_seconds()),
         run_loop(engine, inbox_runner, config.inbox_poll_interval.total_seconds()),
     )
+
+    # Optional: replace the fixed-interval outbox loop above with wakeup-driven
+    # scheduling (see docs/operations.md). Off by default; enable and wire:
+    #
+    # config = PactixConfig(wakeup=WakeupPolicy(enabled=True))
+    # local_wakeup = LocalWakeup()
+    # ... local_wakeup.wake() after each commit that appends rows ...
+    # await asyncio.gather(
+    #     run_wakeup_loop(engine, outbox_runner, config.wakeup, local_wakeup),
+    #     run_loop(engine, inbox_runner, config.inbox_poll_interval.total_seconds()),
+    # )
 
 
 if __name__ == '__main__':

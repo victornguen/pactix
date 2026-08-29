@@ -30,6 +30,51 @@ async def run_outbox_loop(engine, runner, interval=1.0):
 
 The inbox loop is identical with an `InboxRunner`.
 
+## Wakeup-driven scheduling (optional)
+
+Fixed-interval polling is the default and needs nothing extra. For lower
+latency the outbox worker can instead wait on wake signals via the opt-in
+`WakeupRunner`, which merges three sources:
+
+- a `LocalWakeup` in-process signal, set right after each commit that appends rows,
+- PostgreSQL LISTEN/NOTIFY on a dedicated checked-out connection (size your
+  pool for it), and
+- adaptive fallback polling (1s, doubling while idle, capped at 60s) —
+  required, because NOTIFY is at-most-once.
+
+Enable it on the config and run the loop yourself — the library still spawns
+nothing on its own:
+
+```python
+from pactix import LocalWakeup, NotifyMode, PactixConfig, WakeupPolicy, WakeupRunner
+
+local_wakeup = LocalWakeup()  # shared with the code that appends rows
+config = PactixConfig(wakeup=WakeupPolicy(enabled=True, notify_mode=NotifyMode.TRIGGER))
+
+# after each commit that appends outbox rows:
+local_wakeup.wake()
+
+# worker process: loops until cancelled and drains until empty on each wake;
+# raises ValidationError if the policy is disabled
+await WakeupRunner(outbox_runner, config.wakeup, local_wakeup).run(engine)
+```
+
+`notify_mode` controls how PostgreSQL NOTIFY is emitted:
+
+- `TRIGGER` — a database trigger notifies on every outbox insert. Requires
+  migration `0003_add_outbox_wake_trigger` (applied by `alembic upgrade head`;
+  stay on 0002 if you never use this mode).
+- `COALESCED` (default) — the app emits a debounced `pg_notify` after commit:
+  `await CoalescedNotifier(engine, channel, coalesce_interval).notify()`.
+- `OFF` — no NOTIFY; local signal plus fallback polling only.
+
+LISTEN/NOTIFY is session-based: behind PgBouncer in transaction pooling mode
+notifications are silently lost — use session pooling or a direct connection.
+On non-PostgreSQL dialects (e.g. MySQL) the listener is silently inactive; the
+local signal and fallback polling still work.
+
+The inbox worker has no wakeup support; poll it as above.
+
 ## Retry and lease behavior
 
 Retry state lives in the same tables as the messages:

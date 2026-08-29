@@ -44,6 +44,10 @@ summary = await runner.run_once(engine)   # summary.published <= summary.claimed
 A publisher returns `PublishOutcome.published()`, `PublishOutcome.retryable(msg)`,
 or `PublishOutcome.terminal(msg)`.
 
+Scheduling is caller-owned — poll on an interval, or use the optional
+wakeup-driven loop (`WakeupRunner`) for millisecond reaction; see
+[Operations](operations.md#wakeup-driven-scheduling-optional).
+
 ## Inbox: save received
 
 Durably store an incoming message before any business processing. Deduplication
