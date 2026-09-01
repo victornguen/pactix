@@ -3,8 +3,8 @@
 The database URL is taken from the Alembic config (``sqlalchemy.url``) or the
 ``PACTIX_DATABASE_URL`` environment variable. A synchronous (psycopg/pg8000)
 or asyncpg URL both work for offline rendering; online upgrades use a sync
-driver, so point this at a sync URL (e.g. ``postgresql://``) when running
-``alembic upgrade``.
+driver, so point this at a sync URL when running ``alembic upgrade`` —
+``postgresql://`` for PostgreSQL, ``mysql+pymysql://`` for MySQL.
 """
 
 from __future__ import annotations

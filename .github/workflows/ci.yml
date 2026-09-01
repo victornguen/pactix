@@ -32,7 +32,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Sync dependencies
-        run: uv sync --extra http --extra kafka --extra migrations
+        run: uv sync --extra http --extra kafka --extra migrations --extra postgres --extra mysql
 
       - name: Ruff (lint)
         run: uv run ruff check .

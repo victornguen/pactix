@@ -6,11 +6,46 @@
 
 - run the bundled Alembic migrations in `src/pactix/db/migrations` (configure the
   URL via `PACTIX_DATABASE_URL` or `alembic.ini`; online upgrades use a sync
-  driver, so use a `postgresql://` URL), or
+  driver, so use a `postgresql://` or `mysql+pymysql://` URL), or
 - create the tables from the SQLAlchemy metadata in `pactix.db.tables` through
   your own pipeline.
 
 The library expects these table names: `outbox_message` and `inbox_message`.
+
+## MySQL
+
+MySQL 8.0+ is supported alongside PostgreSQL with identical
+claim/lease/retry/FIFO semantics and the same at-least-once contract. The
+dialect is auto-detected per call from the engine/connection — there is no
+config knob, and one store instance works across engines of both dialects.
+
+Migrations: the bundled revisions branch on the bind dialect, so one
+`alembic upgrade head` works on either database. Online upgrades use a sync
+driver — configure a `mysql+pymysql://` URL and add `pymysql` to your
+migration environment. Revision `0003_add_outbox_wake_trigger` (the wakeup
+trigger) is PostgreSQL-only and no-ops on MySQL.
+
+Isolation: run the outbox/inbox tables under `READ COMMITTED`. Under MySQL's
+default `REPEATABLE READ`, InnoDB takes next-key/gap locks for the claim's
+`SELECT ... FOR UPDATE` range scan, and the `NOT EXISTS` FIFO gate widens the
+locked gaps — concurrent claimers can block or deadlock while touching
+disjoint rows. `READ COMMITTED` takes record-only locks for these statements,
+the closest match to the PostgreSQL behavior the semantics were designed
+against. The library does not set or verify the isolation level.
+
+Schema differences from the PostgreSQL DDL (one logical schema, per-dialect
+physical types):
+
+- uuids are `CHAR(32)` hex, round-tripping `uuid.UUID` in Python
+- indexed/unique text columns are `VARCHAR(255)` (identifiers, not payloads);
+  unindexed text stays `TEXT`
+- `JSON` instead of `JSONB`
+- `DATETIME(6)` timestamps, stored as naive UTC and re-attached to UTC on read
+- plain indexes where PostgreSQL uses partial ones
+
+Wakeup: MySQL has no LISTEN/NOTIFY equivalent, so the listener stays inactive
+and the feature degrades to `LocalWakeup` plus adaptive fallback polling.
+`WakeupRunner` and the `WakeupPolicy` config work unchanged.
 
 ## Worker loops
 
@@ -107,4 +142,4 @@ transaction — so a slow publisher does not hold a row's lease open.
 - decide which process owns the inbox worker loop
 - pick a transport module or supply custom publisher/receiver logic
 - make business effects idempotent before enabling multiple workers
-- add a test run against a real PostgreSQL to CI
+- add a test run against a real PostgreSQL or MySQL to CI

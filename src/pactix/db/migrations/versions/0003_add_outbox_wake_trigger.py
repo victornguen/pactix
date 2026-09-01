@@ -6,6 +6,9 @@ Create Date: 2026-08-29
 
 Opt-in: only needed for ``NotifyMode.TRIGGER``; coalesced mode notifies from
 the application instead.
+
+No-op on MySQL: LISTEN/NOTIFY does not exist there, so wakeup scheduling
+degrades to ``LocalWakeup`` plus adaptive fallback polling.
 """
 
 from __future__ import annotations
@@ -21,6 +24,8 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    if op.get_bind().dialect.name == 'mysql':
+        return
     op.execute(
         """
         CREATE OR REPLACE FUNCTION outbox_wake() RETURNS trigger AS $$
@@ -42,5 +47,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if op.get_bind().dialect.name == 'mysql':
+        return
     op.execute('DROP TRIGGER IF EXISTS outbox_message_wake ON outbox_message')
     op.execute('DROP FUNCTION IF EXISTS outbox_wake()')

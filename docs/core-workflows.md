@@ -2,8 +2,8 @@
 
 `pactix` has two sides: the **outbox** (publish events your service produces) and
 the **inbox** (durably receive and process events from elsewhere). Both store
-state in PostgreSQL and are driven by one-pass runners that your service
-schedules.
+state in PostgreSQL or MySQL 8 and are driven by one-pass runners that your
+service schedules.
 
 ## Outbox: append
 

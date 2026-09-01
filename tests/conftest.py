@@ -1,8 +1,8 @@
 """Shared test fixtures.
 
-Pure-logic tests need no database. Tests marked ``@pytest.mark.postgres`` get a
-real PostgreSQL via testcontainers (requires Docker); they are skipped if Docker
-or testcontainers is unavailable.
+Pure-logic tests need no database. Tests marked ``@pytest.mark.postgres`` or
+``@pytest.mark.mysql`` get a real database via testcontainers (requires
+Docker); they are skipped if Docker or testcontainers is unavailable.
 """
 
 from __future__ import annotations
@@ -19,6 +19,10 @@ from pactix.db.tables import metadata
 
 def _to_asyncpg_url(url: str) -> str:
     return re.sub(r'^postgresql(\+\w+)?://', 'postgresql+asyncpg://', url)
+
+
+def _to_asyncmy_url(url: str) -> str:
+    return re.sub(r'^mysql(\+\w+)?://', 'mysql+asyncmy://', url)
 
 
 @pytest.fixture(scope='session')
@@ -43,6 +47,37 @@ def postgres_url() -> Iterator[str]:
 @pytest_asyncio.fixture
 async def engine(postgres_url: str) -> AsyncIterator[AsyncEngine]:
     engine = create_async_engine(postgres_url)
+    async with engine.begin() as conn:
+        await conn.run_sync(metadata.drop_all)
+        await conn.run_sync(metadata.create_all)
+    try:
+        yield engine
+    finally:
+        await engine.dispose()
+
+
+@pytest.fixture(scope='session')
+def mysql_url() -> Iterator[str]:
+    try:
+        from testcontainers.mysql import MySqlContainer
+    except Exception as error:  # pragma: no cover
+        pytest.skip(f'testcontainers unavailable: {error}')
+
+    try:
+        container = MySqlContainer('mysql:8.0')
+        container.start()
+    except Exception as error:  # pragma: no cover
+        pytest.skip(f'could not start MySQL container (Docker required): {error}')
+
+    try:
+        yield _to_asyncmy_url(container.get_connection_url())
+    finally:
+        container.stop()
+
+
+@pytest_asyncio.fixture
+async def mysql_engine(mysql_url: str) -> AsyncIterator[AsyncEngine]:
+    engine = create_async_engine(mysql_url)
     async with engine.begin() as conn:
         await conn.run_sync(metadata.drop_all)
         await conn.run_sync(metadata.create_all)

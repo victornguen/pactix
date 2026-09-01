@@ -83,6 +83,8 @@ async def run_wakeup_loop(
 
 
 async def main(dsn: str) -> None:
+    # `dsn` may be postgresql+asyncpg://... or mysql+asyncmy://... (MySQL 8);
+    # the dialect is auto-detected from the engine — no config knob.
     config = PactixConfig()
     engine = create_async_engine(dsn)
 
@@ -104,6 +106,8 @@ async def main(dsn: str) -> None:
 
     # Optional: replace the fixed-interval outbox loop above with wakeup-driven
     # scheduling (see docs/operations.md). Off by default; enable and wire:
+    # (on MySQL this uses the local signal + adaptive fallback polling only —
+    # there is no LISTEN/NOTIFY equivalent there.)
     #
     # config = PactixConfig(wakeup=WakeupPolicy(enabled=True))
     # local_wakeup = LocalWakeup()

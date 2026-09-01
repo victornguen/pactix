@@ -3,6 +3,10 @@
 Revision ID: 0001
 Revises:
 Create Date: 2026-06-15
+
+Dialect-aware: the PostgreSQL DDL is unchanged; the MySQL branch mirrors it
+with MySQL-legal types (CHAR(32) uuid, VARCHAR(255) indexed/unique text, JSON,
+DATETIME(6), plain indexes, expression default for ``headers``).
 """
 
 from __future__ import annotations
@@ -11,7 +15,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql
+from sqlalchemy.dialects import mysql, postgresql
 
 revision: str = '0001'
 down_revision: str | None = None
@@ -20,6 +24,13 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    if op.get_bind().dialect.name == 'mysql':
+        _upgrade_mysql()
+    else:
+        _upgrade_postgresql()
+
+
+def _upgrade_postgresql() -> None:
     op.create_table(
         'outbox_message',
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
@@ -73,6 +84,46 @@ def upgrade() -> None:
         ['correlation_id'],
         postgresql_where=sa.text('correlation_id IS NOT NULL'),
     )
+
+
+def _upgrade_mysql() -> None:
+    op.create_table(
+        'outbox_message',
+        sa.Column('id', mysql.CHAR(32), primary_key=True),
+        sa.Column('message_id', sa.String(255), nullable=False, unique=True),
+        sa.Column('event_type', sa.String(255), nullable=False),
+        sa.Column('message_key', sa.Text(), nullable=True),
+        sa.Column('ordering_key', sa.String(255), nullable=True),
+        sa.Column('correlation_id', sa.String(255), nullable=True),
+        sa.Column('payload', mysql.JSON(), nullable=False),
+        sa.Column(
+            'headers',
+            mysql.JSON(),
+            nullable=False,
+            server_default=sa.text('(JSON_OBJECT())'),
+        ),
+        sa.Column('status', sa.String(255), nullable=False),
+        sa.Column('attempts', sa.Integer(), nullable=False, server_default=sa.text('0')),
+        sa.Column('max_attempts', sa.Integer(), nullable=False),
+        sa.Column('available_at', mysql.DATETIME(fsp=6), nullable=False),
+        sa.Column('lease_until', mysql.DATETIME(fsp=6), nullable=True),
+        sa.Column('last_error', sa.Text(), nullable=True),
+        sa.Column('created_at', mysql.DATETIME(fsp=6), nullable=False),
+        sa.Column('updated_at', mysql.DATETIME(fsp=6), nullable=False),
+        sa.Column('published_at', mysql.DATETIME(fsp=6), nullable=True),
+        sa.CheckConstraint(
+            "status IN ('pending', 'processing', 'published', 'failed')",
+            name='outbox_message_status_check',
+        ),
+    )
+    op.create_index('idx_outbox_message_ready', 'outbox_message', ['status', 'available_at'])
+    op.create_index(
+        'idx_outbox_message_fifo',
+        'outbox_message',
+        ['event_type', 'ordering_key', 'created_at'],
+    )
+    op.create_index('idx_outbox_message_lease', 'outbox_message', ['lease_until'])
+    op.create_index('idx_outbox_message_correlation', 'outbox_message', ['correlation_id'])
 
 
 def downgrade() -> None:

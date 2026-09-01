@@ -1,0 +1,138 @@
+{
+  "benchmark": "standard polling vs wakeup-driven outbox scheduling (PostgreSQL)",
+  "generated_at": "2026-08-29T23:30:45.315451+00:00",
+  "environment": {
+    "python": "3.14.3",
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "cpu": "Apple M4 Pro",
+    "postgres_image": "postgres:16-alpine"
+  },
+  "config": {
+    "outbox_poll_interval_ms": 250.0,
+    "outbox_batch_size": 100,
+    "lease_duration_s": 30.0,
+    "wakeup_channel": "outbox_wake",
+    "coalesce_interval_ms": 50.0,
+    "fallback_initial_interval_s": 1.0,
+    "fallback_max_interval_s": 60.0,
+    "fallback_multiplier": 2.0,
+    "local_wakeup": "not wired (measuring the cross-process NOTIFY path)",
+    "profiles": {
+      "steady": {
+        "events": 1000,
+        "rate_per_s": 100.0,
+        "events_per_txn": 1
+      },
+      "burst": {
+        "events": 2000,
+        "events_per_txn": 50
+      }
+    }
+  },
+  "metric_definitions": {
+    "latency_ms": "published_at - created_at read back from the DB after drain (same process clock)",
+    "throughput_eps": "events / wall seconds from first append to last observed publish",
+    "worker_queries": "statements via before_cursor_execute on the worker engine only, within the wall window",
+    "cpu_percent": "process getrusage utime+stime delta / wall * 100 (producer and worker share the process)",
+    "idle_queries_per_s": "worker statements/s during a 5s post-drain window with an empty outbox"
+  },
+  "runs": [
+    {
+      "scenario": "polling",
+      "profile": "steady",
+      "events": 1000,
+      "wall_s": 10.124,
+      "throughput_eps": 98.8,
+      "latency_mean_ms": 229.85,
+      "latency_p50_ms": 233.74,
+      "latency_p99_ms": 368.26,
+      "worker_queries": 1064,
+      "worker_queries_per_s": 105.1,
+      "cpu_percent": 28.4,
+      "idle_window_s": 5.0,
+      "idle_queries": 38,
+      "idle_queries_per_s": 7.6
+    },
+    {
+      "scenario": "polling",
+      "profile": "burst",
+      "events": 2000,
+      "wall_s": 9.608,
+      "throughput_eps": 208.2,
+      "latency_mean_ms": 4189.64,
+      "latency_p50_ms": 4179.44,
+      "latency_p99_ms": 8390.1,
+      "worker_queries": 2046,
+      "worker_queries_per_s": 212.9,
+      "cpu_percent": 28.4,
+      "idle_window_s": 5.0,
+      "idle_queries": 38,
+      "idle_queries_per_s": 7.6
+    },
+    {
+      "scenario": "wakeup-trigger",
+      "profile": "steady",
+      "events": 1000,
+      "wall_s": 10.004,
+      "throughput_eps": 100.0,
+      "latency_mean_ms": 5.35,
+      "latency_p50_ms": 4.98,
+      "latency_p99_ms": 11.37,
+      "worker_queries": 4954,
+      "worker_queries_per_s": 495.2,
+      "cpu_percent": 40.9,
+      "idle_window_s": 5.0,
+      "idle_queries": 4,
+      "idle_queries_per_s": 0.8
+    },
+    {
+      "scenario": "wakeup-trigger",
+      "profile": "burst",
+      "events": 2000,
+      "wall_s": 2.071,
+      "throughput_eps": 965.7,
+      "latency_mean_ms": 641.23,
+      "latency_p50_ms": 684.58,
+      "latency_p99_ms": 1053.1,
+      "worker_queries": 2046,
+      "worker_queries_per_s": 987.9,
+      "cpu_percent": 56.8,
+      "idle_window_s": 5.0,
+      "idle_queries": 2,
+      "idle_queries_per_s": 0.4
+    },
+    {
+      "scenario": "wakeup-coalesced",
+      "profile": "steady",
+      "events": 1000,
+      "wall_s": 10.002,
+      "throughput_eps": 100.0,
+      "latency_mean_ms": 20.71,
+      "latency_p50_ms": 18.11,
+      "latency_p99_ms": 53.71,
+      "worker_queries": 2406,
+      "worker_queries_per_s": 240.5,
+      "cpu_percent": 35.4,
+      "idle_window_s": 5.0,
+      "idle_queries": 4,
+      "idle_queries_per_s": 0.8
+    },
+    {
+      "scenario": "wakeup-coalesced",
+      "profile": "burst",
+      "events": 2000,
+      "wall_s": 2.219,
+      "throughput_eps": 901.2,
+      "latency_mean_ms": 703.54,
+      "latency_p50_ms": 739.7,
+      "latency_p99_ms": 1157.68,
+      "worker_queries": 2046,
+      "worker_queries_per_s": 921.9,
+      "cpu_percent": 53.4,
+      "idle_window_s": 5.0,
+      "idle_queries": 2,
+      "idle_queries_per_s": 0.4
+    }
+  ]
+}
